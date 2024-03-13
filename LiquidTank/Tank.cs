@@ -1,114 +1,100 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Drawing.Drawing2D;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
+﻿using System.Drawing.Drawing2D;
 
-namespace LiquidTank
+namespace LiquidTank;
+
+internal class Tank(double currentLiquidVolume = 500, double maxLiquidVolume = 1000, double dripRate = 10)
 {
-    internal class Tank
+    private bool _isValveOpened;      
+    private double _currentLiquidVolume = (currentLiquidVolume < maxLiquidVolume && currentLiquidVolume > 0) ? currentLiquidVolume : 0;
+    private double _maxLiquidVolume = (maxLiquidVolume > 0) ? maxLiquidVolume : 1000;
+    private double _dripRate = (dripRate > 0 && dripRate < 1000) ? dripRate : 10;  
+    private Rectangle _rectangle;
+
+    public ValveMode Mode { get; set; }
+    public double DripRate { set { _dripRate = (value > 0) ? value : _dripRate; } get { return _dripRate; } }
+    public double MaxLiquidVolume => _maxLiquidVolume;
+    public double CurrentLiquidVolume => _currentLiquidVolume;
+
+    public void DrawTank(PictureBox pictureBox)
     {
-        private bool _isValveOpened;
-        private int _valveMode;
-        private double _currentLiquidVolume;
-        private double _maxLiquidVolume;
-        private double _dripRate;
-        private double _liquidPercent;
-        private Rectangle _rectangle;
+        Bitmap bitmap = new(pictureBox.Width, pictureBox.Height);
+        GraphicsPath path = new() { FillMode = FillMode.Winding };
 
-        public double DripRate { set { _dripRate = (value > 0) ? value : _dripRate; } get { return _dripRate; } }
+        CreateTankRect(pictureBox, 400);
 
-        public Tank(double currentLiquidVolume = 0, double maxLiquidVolume = 1000) 
+        using (Graphics g = Graphics.FromImage(bitmap))
         {
-            _currentLiquidVolume = (currentLiquidVolume < maxLiquidVolume && currentLiquidVolume > 0) ? currentLiquidVolume : 0;
-            _maxLiquidVolume = (maxLiquidVolume > 0) ? maxLiquidVolume : 1000;           
-        }   
-        
-        public void DrawTank(PictureBox pictureBox)
-        {
-            Bitmap bitmap = new(pictureBox.Width, pictureBox.Height);
-            GraphicsPath path = new() { FillMode = FillMode.Winding };
+            Pen pen = new(Color.Black, 3);
+            g.SmoothingMode = SmoothingMode.HighQuality;
+            path.AddRectangle(_rectangle);
+            g.DrawPath(pen, path);
 
-            CreateTankRect(pictureBox, 360);
-
-            using (Graphics g = Graphics.FromImage(bitmap))
-            {               
-                Pen pen = new(Color.Black, 3);
-                Pen dottedPen = new(Color.Black, 0.5f) { DashStyle = DashStyle.DashDotDot };        
-
-                g.SmoothingMode = SmoothingMode.HighQuality;               
-
-                path.AddRectangle(_rectangle);
-
-                g.DrawPath(pen, path);
-                //g.DrawArc(pen, centerX - radius, centerY - radius, 2 * radius, radius, 0, 180);
-                //g.DrawArc(dottedPen, centerX - radius, centerY + radius, 2 * radius, radius, 180, 180);
-
-                //g.DrawRectangle(pen, _rectangle.X, (float)(_rectangle.Y + _rectangle.Height - _currentLiquidVolume), _rectangle.Width, (float)_currentLiquidVolume);
-
-                DrawLiquid(g);
-
-                pen.Dispose();
-                g.Dispose();
-            }
-            pictureBox.Image = bitmap;
-        }
-
-        private void CreateTankRect(PictureBox pictureBox, int scale)
-        {
-            int centerX = pictureBox.Width / 2;
-            int centerY = pictureBox.Height / 2;
-
-            _rectangle = new(centerX, centerY, scale, scale);
-        }
-
-        public void DrawLiquid(Graphics g)
-        {
-            Color brushColor = Color.Red;
-            SolidBrush brush = new(brushColor);
-            g.FillRectangle(brush, _rectangle.X, (float)(_rectangle.Y + _rectangle.Height - _liquidPercent), _rectangle.Width, (float)_liquidPercent);
+            pen.Dispose();
             g.Dispose();
-            brush.Dispose();
         }
-        public void PourIn()
-        {
-            _liquidPercent = _rectangle.Height / _maxLiquidVolume * _currentLiquidVolume;
-
-            if (_liquidPercent == _rectangle.Height) return;
-
-             _currentLiquidVolume += 10;
-
-        }
-
-        public void OpenValve()
-        {
-            _isValveOpened = true;
-        }
-
-        public void CloseValve()
-        {
-            _isValveOpened = false;
-        }
+        pictureBox.Image = bitmap;
     }
 
-    //public void PourIn(PictureBox pictureBox)
-    //{
-    //    double percentage = _rectangle.Height / _maxLiquidVolume * _currentLiquidVolume;
-    //    if (percentage == _rectangle.Height) return;
+    private void CreateTankRect(PictureBox pictureBox, int scale)
+    {
+        int centerX = pictureBox.Width / 2;
+        int centerY = pictureBox.Height / 2;
 
-    //    Graphics g = pictureBox.CreateGraphics();
-    //    _currentLiquidVolume += 10;
+        _rectangle = new(centerX, centerY, scale, scale);
+    }
 
-    //    Color brushColor = Color.Red;
-    //    SolidBrush brush = new(brushColor);
+    public void DrawLiquid(PictureBox pictureBox)
+    {
+        Graphics g = pictureBox.CreateGraphics();
+        pictureBox.Refresh();
+        double volume = ConvertToPercent(_currentLiquidVolume);
 
-    //    g.FillRectangle(brush, _rectangle.X, (float)(_rectangle.Y + _rectangle.Height - percentage), _rectangle.Width, (float)percentage);
+        Color brushColor = Color.Aqua;
+        SolidBrush brush = new(brushColor);
+        g.FillRectangle(brush, _rectangle.X, (float)(_rectangle.Y + _rectangle.Height - volume), _rectangle.Width, (float)volume);           
+        g.Dispose();
+        brush.Dispose();          
+    }
 
-    //    g.Dispose();
-    //    brush.Dispose();
-    //}
+    public void PourIn(double limit)
+    {
+        double volume = ConvertToPercent(limit);
+
+        if(volume > _rectangle.Height || volume < ConvertToPercent(_currentLiquidVolume)) return;
+
+        if (ConvertToPercent(_currentLiquidVolume) == volume || _isValveOpened == false) return;
+
+         _currentLiquidVolume += 10;       
+    }
+
+    public void DrainOut(double limit)
+    {
+        double volume = ConvertToPercent(limit);
+
+        if(volume < 0 || volume > ConvertToPercent(_currentLiquidVolume)) return;
+
+        if (ConvertToPercent(_currentLiquidVolume) == volume || _isValveOpened == false) return;
+
+        _currentLiquidVolume -= 10;
+    }
+
+    public void OpenValve()
+    {
+        _isValveOpened = true;
+    }
+
+    public void CloseValve()
+    {
+        _isValveOpened = false;
+    }
+
+    public void SetValveMode(ValveMode mode)
+    {
+        Mode = mode;
+    }
+
+    private double ConvertToPercent(double value)
+    {
+        return _rectangle.Height / _maxLiquidVolume * value;
+    }
 }
