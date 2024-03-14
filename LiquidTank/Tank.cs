@@ -3,14 +3,14 @@
 namespace LiquidTank;
 
 internal class Tank(double currentLiquidVolume = 500, double maxLiquidVolume = 1000, double dripRate = 10)
-{
-    private bool _isValveOpened;      
+{     
     private double _currentLiquidVolume = (currentLiquidVolume < maxLiquidVolume && currentLiquidVolume > 0) ? currentLiquidVolume : 0;
     private double _maxLiquidVolume = (maxLiquidVolume > 0) ? maxLiquidVolume : 1000;
-    private double _dripRate = (dripRate > 0 && dripRate < 1000) ? dripRate : 10;  
-    private Rectangle _rectangle;
+    private double _dripRate = (dripRate > 0 && dripRate < 1000) ? dripRate : 10;
 
-    public ValveMode Mode { get; set; }
+    public bool IsValveOpened { get; private set; }
+    public Rectangle TankRectangle { get; private set; }
+    public IValveMode? ValveMode { get; private set; }
     public double DripRate { set { _dripRate = (value > 0) ? value : _dripRate; } get { return _dripRate; } }
     public double MaxLiquidVolume => _maxLiquidVolume;
     public double CurrentLiquidVolume => _currentLiquidVolume;
@@ -26,7 +26,7 @@ internal class Tank(double currentLiquidVolume = 500, double maxLiquidVolume = 1
         {
             Pen pen = new(Color.Black, 3);
             g.SmoothingMode = SmoothingMode.HighQuality;
-            path.AddRectangle(_rectangle);
+            path.AddRectangle(TankRectangle);
             g.DrawPath(pen, path);
 
             pen.Dispose();
@@ -40,7 +40,7 @@ internal class Tank(double currentLiquidVolume = 500, double maxLiquidVolume = 1
         int centerX = pictureBox.Width / 2;
         int centerY = pictureBox.Height / 2;
 
-        _rectangle = new(centerX, centerY, scale, scale);
+        TankRectangle = new(centerX, centerY, scale, scale);
     }
 
     public void DrawLiquid(PictureBox pictureBox)
@@ -51,50 +51,23 @@ internal class Tank(double currentLiquidVolume = 500, double maxLiquidVolume = 1
 
         Color brushColor = Color.Aqua;
         SolidBrush brush = new(brushColor);
-        g.FillRectangle(brush, _rectangle.X, (float)(_rectangle.Y + _rectangle.Height - volume), _rectangle.Width, (float)volume);           
+        g.FillRectangle(brush, TankRectangle.X, (float)(TankRectangle.Y + TankRectangle.Height - volume), TankRectangle.Width, (float)volume);           
         g.Dispose();
         brush.Dispose();          
     }
 
-    public void PourIn(double limit)
+    public void PourIn(int count) => _currentLiquidVolume += count;
+    
+    public void DrainOut(int count) => _currentLiquidVolume -= count;
+    
+    public void OpenValve() =>  IsValveOpened = true; 
+
+    public void CloseValve() =>  IsValveOpened = false;
+    
+    public void SetValveMode(IValveMode mode) => ValveMode = mode;
+    
+    public double ConvertToPercent(double value)
     {
-        double volume = ConvertToPercent(limit);
-
-        if(volume > _rectangle.Height || volume < ConvertToPercent(_currentLiquidVolume)) return;
-
-        if (ConvertToPercent(_currentLiquidVolume) == volume || _isValveOpened == false) return;
-
-         _currentLiquidVolume += 10;       
-    }
-
-    public void DrainOut(double limit)
-    {
-        double volume = ConvertToPercent(limit);
-
-        if(volume < 0 || volume > ConvertToPercent(_currentLiquidVolume)) return;
-
-        if (ConvertToPercent(_currentLiquidVolume) == volume || _isValveOpened == false) return;
-
-        _currentLiquidVolume -= 10;
-    }
-
-    public void OpenValve()
-    {
-        _isValveOpened = true;
-    }
-
-    public void CloseValve()
-    {
-        _isValveOpened = false;
-    }
-
-    public void SetValveMode(ValveMode mode)
-    {
-        Mode = mode;
-    }
-
-    private double ConvertToPercent(double value)
-    {
-        return _rectangle.Height / _maxLiquidVolume * value;
+        return TankRectangle.Height / _maxLiquidVolume * value;
     }
 }

@@ -5,13 +5,11 @@ namespace LiquidTank;
 
 public partial class Form1 : Form
 {
-    Tank tank = new();
+    private readonly Tank tank = new();
 
     public Form1()
     {
         InitializeComponent();
-        _timer.Tick += Timer_Tick;
-
     }
 
     private void button1_Click(object sender, EventArgs e)
@@ -35,25 +33,17 @@ public partial class Form1 : Form
         _currentVolumeValueLabel.Text = tank.CurrentLiquidVolume.ToString();
     }
 
-    private void Timer_Tick(object sender, EventArgs e)
+    private async void Timer_Tick(object sender, EventArgs e)
     {
-        tank.DrawLiquid(_pictureBox);           
-
-        if(tank.Mode == ValveMode.Pouring)
-        {
-            tank.PourIn((double)_limitVolumeNumericUpDown.Value);           
-        }
-        else if(tank.Mode == ValveMode.Draining)
-        {
-            tank.DrainOut((double)_limitVolumeNumericUpDown.Value);
-        }
+        await Task.Run(() => tank.ValveMode?.Execute(tank, (double)_limitVolumeNumericUpDown.Value, _timer));
+        tank.DrawLiquid(_pictureBox);
         _currentVolumeValueLabel.Text = tank.CurrentLiquidVolume.ToString();
     }
 
     private void DripRateNumericUpDown_ValueChanged(object sender, EventArgs e)
     {
-        tank.DripRate = (double)_dripRateNumericUpDown.Value;
-        _timer.Interval = (int)_dripRateNumericUpDown.Value;
+        tank.DripRate = (double)_dripRateNumericUpDown.Maximum - (double)_dripRateNumericUpDown.Value;
+        _timer.Interval = (int)(_dripRateNumericUpDown.Maximum - (int)_dripRateNumericUpDown.Value);
     }
 
     private void ValveStateComboBox_SelectedIndexChanged(object sender, EventArgs e)
@@ -67,6 +57,10 @@ public partial class Form1 : Form
 
     private void ValveModeComboBox_SelectedIndexChanged(object sender, EventArgs e)
     {
-        tank.SetValveMode((ValveMode)_valveModeComboBox.SelectedIndex);
+        switch((ValveMode)_valveModeComboBox.SelectedIndex)
+        {
+            case ValveMode.Pouring: tank.SetValveMode(new PouringMode()); break;
+            case ValveMode.Draining: tank.SetValveMode(new DrainingMode()); break;
+        }
     }
 }
